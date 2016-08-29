@@ -38,6 +38,7 @@
 #include <util.h>
 #endif
 #include <sys/wait.h>
+#include <assert.h>
 
 #include "http.h"
 #include "log.h"
@@ -98,16 +99,24 @@ static int pppd_run(struct tunnel *tunnel)
 		log_error("forkpty: %s\n", strerror(errno));
 		return 1;
 	} else if (pid == 0) {
-		int i = 16;
-
 		char *args[] = {
 			"/usr/sbin/pppd", "38400", "noipdefault", "noaccomp",
 			"noauth", "default-asyncmap", "nopcomp", "receive-all",
 			"nodefaultroute", ":1.1.1.1", "nodetach",
-			"lcp-max-configure", "40", "usepeerdns", "mru", "1354",
-			NULL, NULL, NULL,
+			"lcp-max-configure", "40", "mru", "1354",
+			NULL, NULL, NULL, NULL,
 			NULL, NULL, NULL
 		};
+		// Dynamically get first NULL pointer so that changes of
+		// args above don't need code changes here
+		int i = sizeof (args) / sizeof (*args) - 1;
+		for (; args [i] == NULL; i--)
+			;
+		i++;
+
+		if (tunnel->config->pppd_use_peerdns) {
+			args[i++] = "usepeerdns";
+		}
 		if (tunnel->config->pppd_log) {
 			args[i++] = "debug";
 			args[i++] = "logfile";
@@ -117,6 +126,8 @@ static int pppd_run(struct tunnel *tunnel)
 			args[i++] = "plugin";
 			args[i++] = tunnel->config->pppd_plugin;
 		}
+		// Assert that we didn't use up all NULL pointers above
+		assert (i < sizeof (args) / sizeof (*args));
 
 		close(tunnel->ssl_socket);
 		if (execvp(args[0], args) == -1) {
@@ -260,10 +271,11 @@ static int ssl_verify_cert(struct tunnel *tunnel)
 	// Encode digest in base16
 	for (i = 0; i < SHA256LEN; i++)
 		sprintf(&digest_str[2 * i], "%02x", digest[i]);
+	digest_str [SHA256STRLEN - 1] = '\0';
 	// Is it in whitelist?
 	for (elem = tunnel->config->cert_whitelist; elem != NULL;
 	     elem = elem->next)
-		if (memcmp(digest_str, elem->data, SHA256STRLEN) == 0)
+		if (memcmp(digest_str, elem->data, SHA256STRLEN - 1) == 0)
 			break;
 	if (elem != NULL) { // break before end of loop
 		log_debug("Gateway certificate digest found in white list.\n");
@@ -416,10 +428,13 @@ int run_tunnel(struct vpn_config *config)
 	int ret;
 	struct tunnel tunnel;
 
+        memset(&tunnel, 0, sizeof(tunnel));
+
 #ifdef __APPLE__
 	// initialize value
 	tunnel.ipv4.split_routes = 0;
 #endif
+
 	tunnel.config = config;
 	tunnel.on_ppp_if_up = on_ppp_if_up;
 	tunnel.on_ppp_if_down = on_ppp_if_down;

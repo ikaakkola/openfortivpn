@@ -20,9 +20,12 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+
 #ifdef __APPLE__
 #include <sys/types.h>
 #endif
+
+#include <unistd.h>
 
 #define ERR_HDLC_BUFFER_TOO_SMALL	-1
 #define ERR_HDLC_NO_FRAME_FOUND		-2
