@@ -361,6 +361,8 @@ int auth_log_in(struct tunnel *tunnel)
 	}
 	ret = get_auth_cookie(tunnel, res);
 	if (ret == ERR_HTTP_NO_COOKIE) {
+	  log_debug( "No auth cookie, trying to get from response..\n" );
+
 		/* If the response body includes a tokeninfo= parameter,
 		 * it means the VPN gateway expects two-factor authentication.
 		 * It sends a one-time authentication credential for example
@@ -377,6 +379,7 @@ int auth_log_in(struct tunnel *tunnel)
 		if (ret != 1) {
 			// No SVPNCOOKIE and no tokeninfo, return error.
 			ret = ERR_HTTP_NO_COOKIE;
+			log_debug( "Could not get cookie from response\n" );
 			goto end;
 		}
 		// Two-factor authentication needed.

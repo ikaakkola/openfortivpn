@@ -157,7 +157,7 @@ static int ipv4_get_route(struct rtentry *route)
 	return ERR_IPV4_NO_SUCH_ROUTE;
 }
 
-static int ipv4_set_route(struct rtentry *route)
+static int ipv4_set_route(struct rtentry *route, struct tunnel *tunnel)
 {
 #ifndef __APPLE__
 	int sockfd;
@@ -178,6 +178,8 @@ static int ipv4_set_route(struct rtentry *route)
 	strncat(cmd, inet_ntoa(route_dest(route)), 15);
 	strcat(cmd, " -netmask ");
 	strncat(cmd, inet_ntoa(route_mask(route)), 15);
+	strcat(cmd, " -interface ");
+	strcat(cmd, tunnel->ppp_iface);
 	if (route->rt_flags & RTF_GATEWAY) {
 		strcat(cmd, " ");
 		strncat(cmd, inet_ntoa(route_gtw(route)), 15);
@@ -280,7 +282,7 @@ static int ipv4_set_split_routes(struct tunnel *tunnel)
 		        ROUTE_IFACE_LEN - 1);
 		if (route_gtw(route).s_addr == -1)
 			route_gtw(route).s_addr = tunnel->ipv4.ip_addr.s_addr;
-		ret = ipv4_set_route(route);
+		ret = ipv4_set_route(route,tunnel);
 		if (ret == ERR_IPV4_SEE_ERRNO && errno == EEXIST)
 			log_warn("Route to gateway exists already.\n");
 		else if (ret != 0)
@@ -319,7 +321,7 @@ static int ipv4_set_default_routes(struct tunnel *tunnel)
 	gtw_rt->rt_metric = 0;
 
 	log_debug("Setting route to tunnel gateway...\n");
-	ret = ipv4_set_route(gtw_rt);
+	ret = ipv4_set_route(gtw_rt,tunnel);
 	if (ret == ERR_IPV4_SEE_ERRNO && errno == EEXIST)
 		log_warn("Route to gateway exists already.\n");
 	else if (ret != 0)
@@ -341,7 +343,7 @@ static int ipv4_set_default_routes(struct tunnel *tunnel)
 	strncpy(route_iface(ppp_rt), tunnel->ppp_iface, ROUTE_IFACE_LEN - 1);
 
 	log_debug("Setting new default route...\n");
-	ret = ipv4_set_route(ppp_rt);
+	ret = ipv4_set_route(ppp_rt,tunnel);
 	if (ret == ERR_IPV4_SEE_ERRNO && errno == EEXIST)
 		log_warn("Default route exists already.\n");
 	else if (ret != 0)
@@ -382,7 +384,7 @@ int ipv4_restore_routes(struct tunnel *tunnel)
 
 	// Restore the default route
 	// It seems to not be automatically restored on all linux distributions
-	ret = ipv4_set_route(def_rt);
+	ret = ipv4_set_route(def_rt,tunnel);
 	if (ret != 0)
 		log_warn("Could not restore default route (%s). Already restored?\n",
 		         err_ipv4_str(ret));
