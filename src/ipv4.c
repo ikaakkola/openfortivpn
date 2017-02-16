@@ -180,10 +180,10 @@ static int ipv4_set_route(struct rtentry *route, struct tunnel *tunnel)
 	strncat(cmd, inet_ntoa(route_mask(route)), 15);
 	strcat(cmd, " -interface ");
 	strcat(cmd, tunnel->ppp_iface);
-	if (route->rt_flags & RTF_GATEWAY) {
+	/*	if (route->rt_flags & RTF_GATEWAY) {
 		strcat(cmd, " ");
 		strncat(cmd, inet_ntoa(route_gtw(route)), 15);
-	}
+		}*/
 
 	log_debug("%s\n", cmd);
 
